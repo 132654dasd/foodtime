@@ -1,0 +1,24 @@
+# ============================================================================
+#  本机私有配置 —— 模板
+#
+#  用法：把本文件复制成同目录下的 application-local.yml，然后填上你自己的密码。
+#        application-local.yml 已被 .gitignore 忽略，永远不会被提交到仓库。
+#
+#    Windows (PowerShell):  Copy-Item application-local.yml.example application-local.yml
+#    Linux / macOS:         cp application-local.yml.example application-local.yml
+#
+#  为什么放在这里就能生效：
+#    application.yml 里配了 spring.profiles.group.dev=local，
+#    dev 启动时会自动叠加 local profile，Spring Boot 便会加载
+#    工作目录（backend/）下的 application-local.yml。
+#    该文件不存在时会被静默跳过，不会报错。
+#
+#  也可以用环境变量代替（优先级高于本文件）：
+#    DB_USERNAME / DB_PASSWORD
+#    例如 PowerShell:  $env:DB_PASSWORD='你的密码'
+# ============================================================================
+spring:
+  datasource:
+    username: root
+    # ↓↓↓ 把下面这行改成你自己的 MySQL 密码 ↓↓↓
+    password: 在这里填你的MySQL密码

@@ -15,8 +15,9 @@ spring:
       jdbc:mysql://localhost:3306/foodie_db_test
       ?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true
       &serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
-    username: root
-    password: 123456
+    # 同 dev：凭据来自环境变量或 backend/application-local.yml，仓库里不留明文
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: FoodieItPool

@@ -2,10 +2,13 @@ package com.foodie;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
@@ -31,12 +34,29 @@ import com.foodie.user.UserRepository;
  *
  * <p>由 failsafe 插件执行（类名以 IT 结尾），所以 {@code mvnw test} 不会跑它，
  * 避免开发者在没装 MySQL 的机器上被卡住；{@code mvnw verify} 才会跑。
+ *
+ * <p>数据库凭据来自 {@code backend/application-local.yml}（已 gitignore）或
+ * {@code DB_PASSWORD} 环境变量；两者都没有时整个类优雅跳过，
+ * 这样别人 clone 下来跑 {@code mvnw verify} 不会看到一个刺眼的红色失败。
  */
 @SpringBootTest
-@ActiveProfiles("it")
+@ActiveProfiles({ "it", "local" })
 @Transactional
 @DisplayName("MySQL 集成测试")
+@EnabledIf(value = "dbConfigured",
+        disabledReason = "未配置数据库凭据（backend/application-local.yml 或 DB_PASSWORD），跳过真实 MySQL 集成测试")
 class FoodieMySqlIT {
+
+    /** 判断本机是否配好了数据库凭据；没有就跳过，而不是让构建失败。 */
+    static boolean dbConfigured() {
+        String env = System.getenv("DB_PASSWORD");
+        if (env != null && !env.isBlank()) {
+            return true;
+        }
+        return Files.exists(Path.of("application-local.yml"))
+                || Files.exists(Path.of("src/main/resources/application-local.yml"));
+    }
+
 
     @Autowired
     private RecipeRepository recipeRepository;
