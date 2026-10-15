@@ -8,6 +8,11 @@ spring:
   profiles:
     # 本地默认走 dev（MySQL localhost:3306/foodie_db）
     active: dev
+    # dev 自动叠加 local：本机私有凭据写在 backend/application-local.yml 里
+    # （该文件名已被 .gitignore 忽略），文件不存在时静默跳过。
+    # 所以公开仓库里不含任何明文密码，clone 后照 README 第 2 步复制模板即可。
+    group:
+      dev: local
   lifecycle:
     # 优雅停机：等待在途请求处理完再退出
     timeout-per-shutdown-phase: 20s

@@ -13,18 +13,20 @@
 #                       [Convert]::ToBase64String((1..48|%{Get-Random -Max 256}))
 #                     生成示例（Linux/macOS）：
 #                       openssl rand -base64 48
+#    DB_PASSWORD      数据库密码。prod 刻意不给默认值——
+#                     仓库里不留任何明文凭据，缺失则启动直接失败。
 #
-#  上线前请务必替换的默认值：
-#    DB_USERNAME / DB_PASSWORD   —— 默认是本机 root/123456，仅用于本地演示
-#    DB_PASSWORD 建议配合专用账号（最小权限）而不是 root
-#    APP_UPLOAD_DIR              —— 换成挂载卷或对象存储
+#  建议按需覆盖：
+#    DB_USERNAME                默认 root，生产应换成最小权限专用账号
+#    DB_URL                     默认本机，生产应指向真实实例并补 useSSL=true
+#    APP_UPLOAD_DIR             换成挂载卷或对象存储
 # ============================================================================
 spring:
   datasource:
     # 默认指向本机；生产请用 DB_URL 覆盖，并补上 useSSL=true 等相关参数
     url: ${DB_URL:jdbc:mysql://localhost:3306/foodie_db?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&cachePrepStmts=true&useServerPrepStmts=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:123456}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: FoodieHikariPool

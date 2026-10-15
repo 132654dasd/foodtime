@@ -97,16 +97,35 @@ CREATE DATABASE foodie_db_test DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_090
 
 ### 2. 配置数据库连接
 
-改 `backend/src/main/resources/application-dev.yml` 里的 `username` / `password`：
+数据库密码**不写进仓库**，放在本机私有文件里（该文件名已被 `.gitignore` 忽略）：
+
+```bash
+cd backend
+# Windows (PowerShell)
+Copy-Item application-local.yml.example application-local.yml
+# Linux / macOS
+cp application-local.yml.example application-local.yml
+```
+
+然后编辑 `backend/application-local.yml`，把 `password` 改成你的 MySQL 密码：
 
 ```yaml
 spring:
   datasource:
     username: root
-    password: 你的密码
+    password: 你的MySQL密码
 ```
 
-> 生产环境请用 `application-prod.yml`，它把连接信息与 JWT 密钥全部改成从环境变量读取，仓库里不留任何凭据。
+> **为什么这样就生效**：`application.yml` 里配了 `spring.profiles.group.dev=local`，
+> dev 启动时会自动叠加 `local` profile，Spring Boot 便去加载工作目录（`backend/`）下的
+> `application-local.yml`。该文件不存在时**静默跳过**，不报错，所以这个仓库公开在
+> GitHub 上也不含任何明文凭据，而本机照旧开箱即跑。
+>
+> 也可以用环境变量替代（优先级高于本地文件）：`DB_USERNAME` / `DB_PASSWORD`。
+> 例如 PowerShell：`$env:DB_PASSWORD='你的MySQL密码'`。
+>
+> 生产环境走 `application-prod.yml`：`DB_PASSWORD` 与 `APP_JWT_SECRET` 都是
+> **必填**环境变量，缺失则启动直接失败——刻意为之，避免拿一个人尽皆知的默认值把线上跑起来。
 
 ### 3. 启动后端
 
@@ -151,8 +170,11 @@ java -jar target/backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```bash
 cd backend
 ./mvnw test      # 单元测试：21 个，纯逻辑 + H2，不需要 MySQL
-./mvnw verify    # 额外跑 MySQL 集成测试 8 个（需要第 1 步建的 foodie_db_test）
+./mvnw verify    # 额外跑 9 个 MySQL 集成测试（需要第 1 步建的 foodie_db_test）
 ```
+
+> 集成测试依赖真实 MySQL 和第 2 步配置的凭据。如果两者都没有（比如别人刚 clone 下来还没配环境），
+> 这 9 个测试会被**优雅跳过**而不是直接报错，所以 `./mvnw verify` 照样能拿到绿色构建。
 
 测试分层的理由（不是偷懒，是刻意设计）：
 
@@ -211,3 +233,15 @@ cd backend
 | [docs/API.md](docs/API.md) | 前后端接口契约，含所有字段、参数、错误码与限流阈值 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 分层结构、数据流、关键设计决策与取舍 |
 | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) | 每条性能优化的「问题 → 手段 → 如何验证」 |
+
+---
+
+## 九、开源协议
+
+本项目采用 [MIT License](LICENSE)，可自由用于学习、修改与二次开发，保留署名即可。
+
+---
+
+## 十、仓库
+
+<https://github.com/132654dasd/foodtime>

@@ -9,8 +9,10 @@ spring:
       &serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true
       &cachePrepStmts=true&useServerPrepStmts=true&prepStmtCacheSize=250
       &prepStmtCacheSqlLimit=2048
-    username: root
-    password: 123456
+    # 凭据不写进仓库：优先读环境变量，其次由 backend/application-local.yml 提供
+    # （dev 通过 spring.profiles.group 自动叠加 local，见 application.yml）
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: FoodieHikariPool
