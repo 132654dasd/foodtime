@@ -1,0 +1,126 @@
+# ============================================================================
+#  食光 Foodie —— 公共配置
+#  环境差异放在 application-dev.yml / application-prod.yml / application-test.yml
+# ============================================================================
+spring:
+  application:
+    name: foodie-backend
+  profiles:
+    # 本地默认走 dev（MySQL localhost:3306/foodie_db）
+    active: dev
+  lifecycle:
+    # 优雅停机：等待在途请求处理完再退出
+    timeout-per-shutdown-phase: 20s
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 50MB
+  jpa:
+    # 生产写法：表结构由 Flyway 管，Hibernate 只做校验，绝不自动改表
+    hibernate:
+      ddl-auto: validate
+    # 关闭 OSIV：避免数据库连接被持有到视图渲染阶段，列表接口更容易打满连接池
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        order_inserts: true
+        order_updates: true
+        # 批量抓取：一次性把 N+1 的关联查询收敛成 IN (...) 查询
+        default_batch_fetch_size: 100
+        jdbc:
+          batch_size: 50
+          fetch_size: 100
+          time_zone: Asia/Shanghai
+        # 慢 SQL 埋点：超过 200ms 的查询打印出来（用 [] 保住常量名大小写）
+        "[session.events.log.LOG_QUERIES_SLOWER_THAN_MS]": 200
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    encoding: UTF-8
+    baseline-on-migrate: true
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+  shutdown: graceful
+  # Gzip 压缩：JSON/HTML/CSS/JS 走压缩，图片本身已压缩故排除
+  compression:
+    enabled: true
+    min-response-size: 1KB
+    mime-types: application/json,application/xml,text/html,text/plain,text/css,text/javascript,application/javascript
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 10
+    accept-count: 100
+    max-connections: 8192
+  error:
+    include-message: never
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,caches,loggers
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+
+# ============================================================================
+#  业务自有配置
+# ============================================================================
+app:
+  jwt:
+    issuer: foodie
+    # 至少 256 bit（HS256 要求）。上线务必通过环境变量 APP_JWT_SECRET 覆盖。
+    secret: ${APP_JWT_SECRET:kyo0SP1Z8MiRUQNqXFz1zkJ/JLu7iykaKBrEje+1LBDszVmYdHfeAfdRqqUHwtTo}
+    access-token-ttl: 2h
+    remember-me-ttl: 7d
+  upload:
+    # 本地磁盘存储（本机无对象存储）。目录相对 backend 工作目录。
+    dir: ./data/uploads
+    url-prefix: /uploads
+    max-size-bytes: 5242880
+    allowed-content-types:
+      - image/jpeg
+      - image/png
+      - image/webp
+      - image/gif
+    thumbnail-width: 480
+    medium-width: 1280
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+  # Bucket4j 令牌桶：key 为下方规则名
+  ratelimit:
+    rules:
+      login:     { capacity: 5,  period-seconds: 60 }
+      register:  { capacity: 3,  period-seconds: 300 }
+      comment:   { capacity: 10, period-seconds: 60 }
+      post:      { capacity: 5,  period-seconds: 300 }
+      menu:      { capacity: 30, period-seconds: 60 }
+      upload:    { capacity: 20, period-seconds: 300 }
+
+logging:
+  level:
+    root: INFO
+    com.foodie: INFO

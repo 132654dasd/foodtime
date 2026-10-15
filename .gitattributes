@@ -1,0 +1,22 @@
+# 统一换行符：仓库内一律存 LF，检出到 Windows 也不自动改成 CRLF。
+# 这样 mvnw、*.sh、SQL 脚本在任何平台拿到的都是 LF。
+* text=auto eol=lf
+
+# 二进制文件不做换行符转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.jar  binary
+
+# Windows 批处理必须是 CRLF，否则 cmd 解析会出错
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+# 语言统计时把前端构建产物排除
+frontend/package-lock.json  linguist-generated

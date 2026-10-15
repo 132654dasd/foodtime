@@ -1,0 +1,29 @@
+# ============================================================================
+#  test —— 测试专用
+#
+#  说明（重要，不要误解成"测试全用 H2"）：
+#   - 本文件只服务于「切片测试 / 快速单测」，用 H2 的 MySQL 兼容模式换取速度。
+#   - MySQL 专有语法（ngram 中文全文索引、INSERT IGNORE、原子计数 UPDATE）
+#     必须打真实 MySQL，见 FoodieMySqlIT —— 用独立的 foodie_db_test 库。
+# ============================================================================
+spring:
+  datasource:
+    url: jdbc:h2:mem:foodie;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+app:
+  jwt:
+    issuer: foodie-test
+    secret: dGVzdC1vbmx5LXNlY3JldC1mb3ItZm9vZGllLXVuaXQtdGVzdHMtMDAwMDA=
+    access-token-ttl: 30m
+    remember-me-ttl: 1h
+  upload:
+    dir: ./target/test-uploads

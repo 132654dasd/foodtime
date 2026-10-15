@@ -1,0 +1,239 @@
+/* ------------------------------------------------------------------
+   食光 Foodie 全局样式
+   暖色调（橙/红系）+ Element Plus 主题变量覆盖
+------------------------------------------------------------------ */
+
+:root {
+  /* 品牌色 */
+  --foodie-primary: #ff6b35;
+  --foodie-primary-dark: #d94f1f;
+  --foodie-primary-soft: #fff1e9;
+  --foodie-accent: #ffa62b;
+  --foodie-danger: #e2503c;
+
+  /* 中性色 */
+  --foodie-bg: #fff9f5;
+  --foodie-surface: #ffffff;
+  --foodie-text: #33241b;
+  --foodie-text-muted: #8d7a6c;
+  --foodie-border: #f2e3d9;
+  --foodie-shadow: 0 8px 28px rgba(214, 108, 55, 0.09);
+  --foodie-shadow-hover: 0 14px 36px rgba(214, 108, 55, 0.16);
+
+  /* Element Plus 主题变量覆盖 */
+  --el-color-primary: #ff6b35;
+  --el-color-primary-light-3: #ff8d63;
+  --el-color-primary-light-5: #ffa98a;
+  --el-color-primary-light-7: #ffc7b1;
+  --el-color-primary-light-8: #ffd8c8;
+  --el-color-primary-light-9: #fff1ea;
+  --el-color-primary-dark-2: #d94f1f;
+  --el-color-success: #4caf7d;
+  --el-color-warning: #ffa62b;
+  --el-color-danger: #e2503c;
+  --el-color-error: #e2503c;
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial,
+    sans-serif;
+  --el-text-color-primary: #33241b;
+  --el-text-color-regular: #5c4a3d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 480px at 12% -8%, #ffe9dc 0%, rgba(255, 233, 220, 0) 62%),
+    radial-gradient(900px 420px at 92% 0%, #fff2d8 0%, rgba(255, 242, 216, 0) 58%),
+    var(--foodie-bg);
+  color: var(--foodie-text);
+  font-family: var(--el-font-family);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* ---------------------------------------------------------------- 布局 */
+
+.page {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px 0;
+}
+
+.page--narrow {
+  max-width: 880px;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  font-size: 26px;
+  letter-spacing: -0.2px;
+}
+
+.page-subtitle {
+  margin-top: 6px;
+  color: var(--foodie-text-muted);
+  font-size: 13px;
+}
+
+.section {
+  margin-top: 28px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 19px;
+}
+
+.section-title::before {
+  content: '';
+  width: 4px;
+  height: 18px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--foodie-accent), var(--foodie-primary));
+}
+
+/* ---------------------------------------------------------------- 卡片网格 */
+
+.card-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 560px) {
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1440px) {
+  .card-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------------------------------------------------------------- 通用块 */
+
+.surface {
+  background: var(--foodie-surface);
+  border: 1px solid var(--foodie-border);
+  border-radius: 16px;
+  box-shadow: var(--foodie-shadow);
+}
+
+.muted {
+  color: var(--foodie-text-muted);
+}
+
+.prewrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pager {
+  display: flex;
+  justify-content: center;
+  margin-top: 26px;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--foodie-text-muted);
+}
+
+.warning-panel {
+  border: 1px solid #ffd591;
+  background: #fffbe6;
+  color: #8a5a00;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.trace-line {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--foodie-text-muted);
+  word-break: break-all;
+}
+
+/* 统计数字等宽，避免跳动 */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ecd8cb;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #dfc2ae;
+}

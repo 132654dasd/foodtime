@@ -1,0 +1,66 @@
+# ============================================================================
+#  prod —— 生产/部署配置
+#
+#  设计原则：本文件的每一项都能被环境变量覆盖，仓库里不留真实凭据；
+#  但默认值刻意指向「本机可跑」的配置，这样 README 里那条单 jar 命令
+#  是真的能跑起来的，而不是一条没人验证过的文档。
+#
+#  启用：--spring.profiles.active=prod
+#
+#  必须显式提供的环境变量：
+#    APP_JWT_SECRET   JWT 签名密钥，HS256 要求至少 32 字节
+#                     生成示例（PowerShell）：
+#                       [Convert]::ToBase64String((1..48|%{Get-Random -Max 256}))
+#                     生成示例（Linux/macOS）：
+#                       openssl rand -base64 48
+#
+#  上线前请务必替换的默认值：
+#    DB_USERNAME / DB_PASSWORD   —— 默认是本机 root/123456，仅用于本地演示
+#    DB_PASSWORD 建议配合专用账号（最小权限）而不是 root
+#    APP_UPLOAD_DIR              —— 换成挂载卷或对象存储
+# ============================================================================
+spring:
+  datasource:
+    # 默认指向本机；生产请用 DB_URL 覆盖，并补上 useSSL=true 等相关参数
+    url: ${DB_URL:jdbc:mysql://localhost:3306/foodie_db?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&cachePrepStmts=true&useServerPrepStmts=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: FoodieHikariPool
+      maximum-pool-size: ${DB_POOL_MAX:30}
+      minimum-idle: ${DB_POOL_MIN:10}
+      connection-timeout: 3000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    show-sql: false
+  flyway:
+    # 生产禁止 baseline 兜底，避免掩盖迁移历史问题
+    baseline-on-migrate: false
+
+app:
+  jwt:
+    # 刻意不给默认值：缺失则启动直接失败，避免用一个人尽皆知的密钥把线上跑起来
+    secret: ${APP_JWT_SECRET}
+  upload:
+    # 默认当前目录下的 data/uploads，Windows 与 Linux 都能用；生产请覆盖
+    dir: ${APP_UPLOAD_DIR:./data/uploads}
+  docs:
+    # 接口文档默认「仅管理员可访问」，由 SecurityConfig 判断——
+    # 注意：不要依赖 springdoc.api-docs.enabled / swagger-ui.enabled，也不要改成 Spring 配置属性：
+    #   1) springdoc 3.1.1 + Boot 4.1.1 下这两个属性实测不生效（显式设 false 后端点依然可访问）；
+    #   2) SecurityConfig 这个 Bean 创建时，profile 专属的属性源尚未绑定，
+    #      用配置属性驱动会读到默认值、让规则静默退化成 permitAll。
+    # 因此开关是进程级环境变量 FOODIE_DOCS_ADMIN_ONLY（默认 true）；
+    # 本地调试要用 Swagger 时设 FOODIE_DOCS_ADMIN_ONLY=false。
+
+management:
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    root: WARN
+    com.foodie: INFO
