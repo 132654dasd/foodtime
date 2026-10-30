@@ -22,6 +22,8 @@ import tools.jackson.databind.ObjectMapper;
 import com.foodie.common.BizException;
 import com.foodie.menu.dto.MenuRequest;
 import com.foodie.menu.dto.MenuResponse;
+import com.foodie.price.DishCostService;
+import com.foodie.price.dto.MenuCostVO;
 import com.foodie.recipe.DishCategory;
 import com.foodie.recipe.Recipe;
 import com.foodie.recipe.RecipeCandidate;
@@ -48,19 +50,22 @@ public class MenuPlannerService {
     private final MenuStrategyRegistry strategyRegistry;
     private final AvoidanceFilterService avoidanceFilterService;
     private final ObjectMapper objectMapper;
+    private final DishCostService dishCostService;
 
     public MenuPlannerService(RecipeRepository recipeRepository,
                               UserAvoidanceRepository avoidanceRepository,
                               MenuHistoryRepository historyRepository,
                               MenuStrategyRegistry strategyRegistry,
                               AvoidanceFilterService avoidanceFilterService,
-                              ObjectMapper objectMapper) {
+                              ObjectMapper objectMapper,
+                              DishCostService dishCostService) {
         this.recipeRepository = recipeRepository;
         this.avoidanceRepository = avoidanceRepository;
         this.historyRepository = historyRepository;
         this.strategyRegistry = strategyRegistry;
         this.avoidanceFilterService = avoidanceFilterService;
         this.objectMapper = objectMapper;
+        this.dishCostService = dishCostService;
     }
 
     /**
@@ -102,7 +107,7 @@ public class MenuPlannerService {
             warnings.add("已按忌口（%s）排除 %d 道菜".formatted(String.join("、", keywords), excluded));
         }
 
-        if (request.excludeRecent()) {
+        if (request.excludeRecentEnabled()) {
             Set<Long> recent = recentRecipeIds(userId);
             if (!recent.isEmpty()) {
                 dishPool = avoidRecent(dishPool, recent);
@@ -132,9 +137,12 @@ public class MenuPlannerService {
         MenuResponse.Summary summary = summarize(dishes, soups, keywords);
         saveHistory(userId, request, orderedIds);
 
-        log.debug("配餐完成 userId={} 菜={} 汤={} 忌口={} 警告={}",
-                userId, dishes.size(), soups.size(), keywords, warnings.size());
-        return new MenuResponse(dishes, soups, summary, warnings, (int) excluded);
+        // 成本按当前价目现算，不缓存：管理员改价后应该立刻生效
+        MenuCostVO cost = dishCostService.menuCost(orderedIds);
+
+        log.debug("配餐完成 userId={} 菜={} 汤={} 忌口={} 警告={} 总价={}元",
+                userId, dishes.size(), soups.size(), keywords, warnings.size(), cost.totalCost());
+        return new MenuResponse(dishes, soups, summary, warnings, (int) excluded, cost);
     }
 
     /** 对已有菜单「换一道」：排除当前所有 id，重抽指定数量的同类菜。 */

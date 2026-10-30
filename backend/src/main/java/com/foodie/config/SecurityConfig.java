@@ -113,6 +113,11 @@ public class SecurityConfig {
                             // ---- 菜谱：读开放给所有人（游客也能浏览）
                             .requestMatchers(HttpMethod.GET, "/api/recipes", "/api/recipes/**").permitAll()
 
+                            // ---- 食材价格看板：公开只读。
+                            // 写操作走 /api/admin/ingredient-prices（下面的 ADMIN 规则拦着），
+                            // 普通用户物理上没有改价入口。
+                            .requestMatchers(HttpMethod.GET, "/api/prices/**").permitAll()
+
                             // ---- 社区：读开放
                             .requestMatchers(HttpMethod.GET, "/api/community/**").permitAll()
 

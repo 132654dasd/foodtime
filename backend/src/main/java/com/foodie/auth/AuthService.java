@@ -90,7 +90,7 @@ public class AuthService {
             throw BizException.forbidden("账号已被禁用，请联系管理员");
         }
 
-        boolean rememberMe = request.rememberMe();
+        boolean rememberMe = request.rememberMeEnabled();
         String token = jwtService.issue(user, rememberMe);
         userRepository.touchLastLoginAt(user.getId(), LocalDateTime.now());
 

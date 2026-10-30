@@ -3,6 +3,7 @@ package com.foodie.menu.dto;
 import java.util.List;
 import java.util.Map;
 
+import com.foodie.price.dto.MenuCostVO;
 import com.foodie.recipe.dto.RecipeCardVO;
 
 /**
@@ -13,13 +14,17 @@ import com.foodie.recipe.dto.RecipeCardVO;
  * @param summary  汇总：总热量、总耗时、难度与分类分布
  * @param warnings 降级说明；为空表示完全满足规格
  * @param excludedCount 因忌口被剔除的菜谱总数，让用户知道过滤确实生效了
+ * @param cost     这一桌菜的成本：每道菜的价格 + 总费用。
+ *                 放在配餐结果里而不是让前端再发一次请求，
+ *                 是因为「配完餐立刻想知道多少钱」是最自然的使用路径。
  */
 public record MenuResponse(
         List<RecipeCardVO> dishes,
         List<RecipeCardVO> soups,
         Summary summary,
         List<String> warnings,
-        int excludedCount) {
+        int excludedCount,
+        MenuCostVO cost) {
 
     /** 菜单汇总。 */
     public record Summary(

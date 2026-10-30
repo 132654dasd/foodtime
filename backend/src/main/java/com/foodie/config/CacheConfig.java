@@ -44,6 +44,15 @@ public class CacheConfig {
     /** 用户认证状态：短 TTL，让「禁用账号」最快 5 分钟生效。 */
     public static final String USER_AUTH = "userAuth";
 
+    /**
+     * 食材价目字典。
+     *
+     * <p>与 {@link #RECIPE_META} 的区别：价目会被管理员随时改，
+     * 所以 TTL 不能给到 1 小时；真正保证一致性的手段是改价时整体失效，
+     * 这里的 TTL 只是兜底（比如直接改数据库时也能在 10 分钟内生效）。
+     */
+    public static final String PRICE_CATALOG = "ingredientPrice";
+
     @Bean
     public CacheManager cacheManager() {
         SimpleCacheManager manager = new SimpleCacheManager();
@@ -52,7 +61,9 @@ public class CacheConfig {
                 build(RECIPE_META, 32, Duration.ofHours(1)),
                 build(HOT_RECIPES, 16, Duration.ofMinutes(5)),
                 build(AVOID_BLOCKED, 500, Duration.ofMinutes(30)),
-                build(USER_AUTH, 5_000, Duration.ofMinutes(5))));
+                build(USER_AUTH, 5_000, Duration.ofMinutes(5)),
+                // 价目只有一份全量列表，容量给 4 就够（'enabled' 一个 key + 余量）
+                build(PRICE_CATALOG, 4, Duration.ofMinutes(10))));
         return manager;
     }
 
