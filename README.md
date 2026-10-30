@@ -254,3 +254,25 @@ cd backend
 ## 十、仓库
 
 <https://github.com/132654dasd/foodtime>
+
+---
+
+## 十一、一键启动（Windows）
+
+桌面上的 `启动食光Foodie.bat` / `停止食光Foodie.bat` 是给不想敲命令的人准备的：
+双击启动 → 自动检查 Java / MySQL / jar → 起服务 → 打开浏览器；
+关闭窗口即停止服务（窗口被强制关掉时用「停止」那个收尾）。
+
+真正干活的脚本在 [`scripts/`](scripts/)：
+
+| 脚本 | 作用 |
+|---|---|
+| `scripts/start-foodie.ps1` | 5 步检查（已在运行 / Java / MySQL / jar / 启动）+ 等就绪 + 开浏览器；服务已在运行时不会重复启动 |
+| `scripts/stop-foodie.ps1` | 按 PID 与端口双重定位进程，并轮询等待端口释放 |
+
+> **两个踩过的坑，写进脚本注释了：**
+> 1. PowerShell 5.1 读取**无 BOM** 的 UTF-8 脚本时会按 GBK 解析，中文全变乱码——
+>    所以这两个 `.ps1` 刻意保存为 **UTF-8 with BOM**，改脚本时请保持。
+> 2. Oracle 的 `javapath\java.exe` 是启动器 shim，真正的 JVM 是它的子进程，
+>    所以「按端口反查 PID」比「记 Start-Process 返回的 PID」可靠；
+>    另外 Spring Boot 是优雅停机，进程被杀后端口还要几秒才释放，验证必须轮询而不是睡固定时间。
