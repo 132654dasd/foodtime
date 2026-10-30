@@ -30,6 +30,8 @@ const validId = computed(() => Number.isInteger(recipeId.value) && recipeId.valu
 
 const ingredientRows = computed(() => detail.value?.ingredients ?? [])
 const stepRows = computed(() => detail.value?.steps ?? [])
+/** 成本明细：后端按当前价目实时算出，不做缓存 */
+const costLines = computed(() => detail.value?.cost?.lines ?? [])
 
 async function load(): Promise<void> {
   if (!validId.value) {
@@ -263,6 +265,51 @@ async function submitRating(value: number): Promise<void> {
         <EmptyState v-else title="这道菜还没填食材" description="去后台补一下吧" />
       </section>
 
+      <!-- 成本估算：按当前价目实时算出，管理员改价后刷新页面立刻生效 -->
+      <section v-if="detail.cost" class="section">
+        <h2 class="section-title">成本估算</h2>
+        <div class="cost surface">
+          <div class="cost__head">
+            <div class="cost__total">
+              <span class="muted">整道菜约</span>
+              <strong class="tnum">¥{{ detail.cost.totalCost.toFixed(2) }}</strong>
+              <span v-if="detail.cost.servingCost !== null" class="muted small">
+                人均 ¥{{ detail.cost.servingCost.toFixed(2) }}
+              </span>
+            </div>
+            <el-tag v-if="detail.cost.complete" type="success" effect="light" round>
+              食材已全部定价
+            </el-tag>
+            <el-tag v-else type="warning" effect="light" round>
+              {{ detail.cost.unpricedCount }} 项食材未定价
+            </el-tag>
+          </div>
+
+          <ul class="cost__lines">
+            <li v-for="(line, index) in costLines" :key="`${line.name}-${index}`">
+              <span class="cost__name">
+                {{ line.name }}
+                <el-tag v-if="line.estimated" size="small" effect="plain">估算</el-tag>
+              </span>
+              <span class="cost__calc muted small">
+                {{ line.amount || '适量' }} {{ line.unit ?? '' }}
+                <template v-if="line.quantity !== null && line.priceUnit">
+                  → {{ Number(line.quantity).toFixed(3) }} {{ line.priceUnit }}
+                </template>
+              </span>
+              <span class="cost__amount tnum">
+                {{ line.cost !== null ? `¥${line.cost.toFixed(2)}` : '未定价' }}
+              </span>
+            </li>
+          </ul>
+
+          <p class="cost__hint muted small">
+            按当前价目估算，仅供参考；「少许 / 适量」会按经验克数折算并标注为估算。
+            价目由管理员维护，<RouterLink to="/prices">查看食材价格</RouterLink>。
+          </p>
+        </div>
+      </section>
+
       <section class="section">
         <h2 class="section-title">做法步骤</h2>
         <ol v-if="stepRows.length" class="steps">
@@ -465,5 +512,74 @@ async function submitRating(value: number): Promise<void> {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 28px;
   }
+}
+
+/* ---------------------------------------------------------------- 成本估算 */
+.cost {
+  padding: 16px 18px;
+  border-radius: 14px;
+}
+
+.cost__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--foodie-border);
+}
+
+.cost__total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cost__total strong {
+  color: var(--foodie-primary);
+  font-size: 22px;
+}
+
+.cost__lines {
+  margin: 0;
+  padding: 4px 0 0;
+  list-style: none;
+}
+
+.cost__lines li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--foodie-border);
+}
+
+.cost__lines li:last-child {
+  border-bottom: none;
+}
+
+.cost__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+  font-weight: 600;
+}
+
+.cost__calc {
+  flex: 1;
+  min-width: 0;
+}
+
+.cost__amount {
+  font-weight: 700;
+  color: var(--foodie-primary);
+  white-space: nowrap;
+}
+
+.cost__hint {
+  margin: 10px 0 0;
+  line-height: 1.6;
 }
 </style>

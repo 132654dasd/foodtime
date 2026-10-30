@@ -14,13 +14,19 @@ import {
   createRecipe,
   deleteRecipe,
   isCanceled,
+  listAdminPrices,
   listRecipes,
+  priceCategories,
   recipeDetail,
+  updateIngredientPrice,
   updateRecipe,
 } from '@/api'
 import type {
   AdminUserVO,
   Difficulty,
+  IngredientCategoryCode,
+  IngredientCategoryOption,
+  IngredientPriceVO,
   RecipeCardVO,
   RecipeSaveRequest,
   StatsVO,
@@ -422,12 +428,94 @@ async function changeStatus(user: AdminUserVO, enabled: boolean): Promise<void> 
   }
 }
 
+// ---------------------------------------------------------------- 价格管理
+
+const priceList = ref<IngredientPriceVO[]>([])
+const priceTotal = ref(0)
+const pricePage = ref(1)
+const PRICE_SIZE = 20
+const priceLoading = ref(false)
+const priceError = ref('')
+const priceKeyword = ref('')
+const priceCategory = ref<IngredientCategoryCode | ''>('')
+const priceCategoryOptions = ref<IngredientCategoryOption[]>([])
+const priceSavingId = ref<number | null>(null)
+
+async function loadPrices(page = pricePage.value): Promise<void> {
+  priceLoading.value = true
+  priceError.value = ''
+  try {
+    const result = await listAdminPrices({
+      keyword: priceKeyword.value.trim() || undefined,
+      category: priceCategory.value || undefined,
+      page,
+      size: PRICE_SIZE,
+    })
+    priceList.value = result.list
+    priceTotal.value = result.total
+    pricePage.value = page
+  } catch (error) {
+    priceError.value = error instanceof Error ? error.message : '价格加载失败'
+  } finally {
+    priceLoading.value = false
+  }
+}
+
+async function loadPriceCategories(): Promise<void> {
+  try {
+    priceCategoryOptions.value = await priceCategories()
+  } catch {
+    /* 分类只用于筛选，拿不到不影响改价 */
+    priceCategoryOptions.value = []
+  }
+}
+
+/*
+ * 这两个回写函数是为了避免在模板里写 `v-model="(row as X).field"`：
+ * v-model 需要一个可直接赋值的成员表达式，带类型断言的表达式不是合法赋值目标，
+ * vue-tsc 会报错。改成 :model-value + @update 手动写回。
+ */
+function onPriceInput(row: IngredientPriceVO, value: number | undefined): void {
+  row.unitPrice = value ?? 0
+}
+
+function onPriceEnabled(row: IngredientPriceVO, value: string | number | boolean): void {
+  row.enabled = value === true
+}
+
+async function savePrice(row: IngredientPriceVO): Promise<void> {
+  if (priceSavingId.value !== null) {
+    return
+  }
+  priceSavingId.value = row.id
+  try {
+    const updated = await updateIngredientPrice(row.id, {
+      unitPrice: Number(row.unitPrice),
+      priceUnit: row.priceUnit,
+      category: row.categoryCode ?? undefined,
+      gramsPerUnit: row.gramsPerUnit ?? undefined,
+      note: row.note,
+      enabled: row.enabled,
+    })
+    Object.assign(row, updated)
+    ElMessage.success(`已保存「${row.name}」的价格`)
+  } catch {
+    /* 拦截器已提示 */
+  } finally {
+    priceSavingId.value = null
+  }
+}
+
 function onTabChange(name: string | number): void {
   if (name === 'recipes' && recipes.value.length === 0 && !recipesLoading.value) {
     void loadRecipes(1)
   }
   if (name === 'users' && users.value.length === 0 && !usersLoading.value) {
     void loadUsers(1)
+  }
+  if (name === 'prices' && priceList.value.length === 0 && !priceLoading.value) {
+    void loadPriceCategories()
+    void loadPrices(1)
   }
 }
 
@@ -636,6 +724,125 @@ onMounted(async () => {
               :page-size="USER_SIZE"
               :total="userTotal"
               @current-change="(page: number) => loadUsers(page)"
+            />
+          </div>
+        </template>
+      </el-tab-pane>
+
+      <!-- 价格管理：只有管理员能改价（后端 /api/admin/** 强制 ADMIN） -->
+      <el-tab-pane label="价格管理" name="prices">
+        <div class="toolbar">
+          <el-input
+            v-model="priceKeyword"
+            placeholder="搜索食材"
+            clearable
+            :prefix-icon="Search"
+            style="max-width: 200px"
+            @keyup.enter="loadPrices(1)"
+            @clear="loadPrices(1)"
+          />
+          <el-select
+            v-model="priceCategory"
+            placeholder="全部分类"
+            clearable
+            style="width: 150px"
+            @change="loadPrices(1)"
+          >
+            <el-option
+              v-for="item in priceCategoryOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+          <el-button type="primary" @click="loadPrices(1)">查询</el-button>
+          <el-button text :icon="Refresh" @click="loadPrices()">刷新</el-button>
+          <span class="muted small">改价后立即生效，用户侧无需刷新缓存</span>
+        </div>
+
+        <LoadingState v-if="priceLoading" variant="cards" :cards="3" />
+
+        <el-result v-else-if="priceError" icon="error" title="加载失败" :sub-title="priceError">
+          <template #extra>
+            <el-button type="primary" @click="loadPrices()">重试</el-button>
+          </template>
+        </el-result>
+
+        <EmptyState v-else-if="priceList.length === 0" title="没有匹配的食材价格" />
+
+        <template v-else>
+          <el-table :data="priceList" stripe style="width: 100%">
+            <el-table-column prop="name" label="食材" min-width="110" />
+            <el-table-column label="分类" width="90">
+              <template #default="{ row }">
+                {{ (row as IngredientPriceVO).category ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="单价（元）" width="200">
+              <template #default="{ row }">
+                <el-input-number
+                  :model-value="(row as IngredientPriceVO).unitPrice"
+                  :min="0"
+                  :precision="2"
+                  :step="0.5"
+                  size="small"
+                  controls-position="right"
+                  style="width: 116px"
+                  @update:model-value="
+                    (value: number | undefined) => onPriceInput(row as IngredientPriceVO, value)
+                  "
+                />
+                <span class="muted small">/ {{ (row as IngredientPriceVO).priceUnit }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="换算参考" width="130">
+              <template #default="{ row }">
+                <span v-if="(row as IngredientPriceVO).gramsPerUnit">
+                  1{{ (row as IngredientPriceVO).priceUnit }}≈{{
+                    (row as IngredientPriceVO).gramsPerUnit
+                  }}g
+                </span>
+                <span v-else class="muted">—</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="启用" width="90">
+              <template #default="{ row }">
+                <el-switch
+                  :model-value="(row as IngredientPriceVO).enabled"
+                  @update:model-value="
+                    (value: string | number | boolean) =>
+                      onPriceEnabled(row as IngredientPriceVO, value)
+                  "
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="最后修改" width="150">
+              <template #default="{ row }">
+                {{ (row as IngredientPriceVO).updatedAt ?? '—' }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="90" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  type="primary"
+                  link
+                  :loading="priceSavingId === (row as IngredientPriceVO).id"
+                  @click="savePrice(row as IngredientPriceVO)"
+                >
+                  保存
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pager">
+            <el-pagination
+              background
+              layout="prev, pager, next, total"
+              :current-page="pricePage"
+              :page-size="PRICE_SIZE"
+              :total="priceTotal"
+              @current-change="(page: number) => loadPrices(page)"
             />
           </div>
         </template>

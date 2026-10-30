@@ -345,3 +345,92 @@
   > 为什么不用 `springdoc.api-docs.enabled=false` 关闭：实测在 springdoc 3.1.1 + Boot 4.1.1 下
   > 该属性不生效（显式设为 false 后端点依然可访问）。详见 `docs/PERFORMANCE.md`。
 - `/uploads/**` —— 公开静态资源，带 `Cache-Control: max-age=30d, immutable`
+
+---
+
+## 10. 食材价格与做菜成本
+
+价目由**管理员**维护，所有用户（含游客）可查看；成本按**当前价目实时计算**，不做缓存。
+
+### GET `/api/prices/ingredients` —— 价格看板（公开）
+
+Query：`keyword`（食材名模糊）、`category`（`VEGETABLE` 枚举名或「蔬菜」中文名）、`page`、`size`（≤100）。
+只返回 `enabled = 1` 的条目。
+
+```json
+{
+  "id": 64, "name": "番茄", "category": "蔬菜", "categoryCode": "VEGETABLE",
+  "priceUnit": "斤", "unitPrice": 4.5000, "gramsPerUnit": 150.000,
+  "note": null, "enabled": true, "updatedBy": 1, "updatedAt": "2026-10-30 12:43"
+}
+```
+
+### GET `/api/prices/categories` —— 分类字典（公开）
+
+`[{ "value": "VEGETABLE", "label": "蔬菜" }, …]`
+
+### GET `/api/admin/ingredient-prices` —— 后台价目列表（ADMIN）
+
+Query 同上，额外包含停用条目。
+
+### POST `/api/admin/ingredient-prices` —— 新增价目（ADMIN）
+
+```json
+{ "name": "鲟鱼", "unitPrice": 68, "priceUnit": "斤", "category": "AQUATIC", "gramsPerUnit": null, "note": "本地市场价" }
+```
+
+同名已存在返回 400。
+
+### PUT `/api/admin/ingredient-prices/{id}` —— 改价（ADMIN）
+
+字段全部可选，**只更新传了值的字段**：
+
+```json
+{ "unitPrice": 9.0, "enabled": true, "note": "调价" }
+```
+
+修改后价目缓存整体失效，下一次请求即按新价计算（无需等待 TTL）。
+
+### DELETE `/api/admin/ingredient-prices/{id}` —— 删除价目（ADMIN）
+
+删除后该食材视为「未定价」，不参与成本计算。
+
+### POST `/api/menu/cost` —— 计算所选菜品的价格
+
+```json
+{ "recipeIds": [1, 2, 3] }
+```
+
+返回 `MenuCostVO`：
+
+```json
+{
+  "dishes": [{
+    "recipeId": 1, "title": "番茄蛋花汤", "servings": 2,
+    "totalCost": 5.74, "servingCost": 2.87,
+    "pricedCount": 7, "unpricedCount": 0, "estimatedCount": 3, "complete": true,
+    "lines": [
+      { "name": "番茄", "amount": "2", "unit": "个", "category": "蔬菜",
+        "quantity": 0.600000, "priceUnit": "斤", "unitPrice": 4.5000,
+        "cost": 2.70, "priced": true, "estimated": false }
+    ]
+  }],
+  "totalCost": 214.91, "perServingCost": 16.53,
+  "dishCount": 4, "pricedDishCount": 4, "unpricedIngredientCount": 0, "warnings": []
+}
+```
+
+- `quantity` 是**换算到计价单位后**的数量（上例：2 个番茄 × 150 g/个 = 300 g = 0.6 斤）
+- `unpricedCount > 0` 表示有食材没有价目、或单位换算不了；这些行**不计入总额**，
+  前端必须把 `warnings` 展示出来，不能只显示一个偏低的总额
+- `estimated = true` 表示该行用量是「少许 / 适量 / 几滴」折算，或跨单位估算而来
+- 一次最多 30 道菜；空数组返回 400
+
+### `GET /api/recipes/{id}` 新增 `cost` 字段
+
+结构同 `DishCostVO`（上面 `dishes[0]` 那一项），游客可见。
+该字段**不进缓存**：价目一变，下一次请求就是新金额。
+
+### `POST /api/menu/random` 新增 `cost` 字段
+
+整桌菜的 `MenuCostVO`，与上面的结构一致，省掉前端再发一次请求。

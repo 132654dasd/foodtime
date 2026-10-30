@@ -107,6 +107,11 @@ export interface RecipeStepVO {
 export interface RecipeDetailVO extends RecipeCardVO {
   ingredients: RecipeIngredientVO[]
   steps: RecipeStepVO[]
+  /**
+   * 实时算出的做菜成本。
+   * 后端刻意不缓存它（价目会被管理员改），所以每次请求都会带上最新金额。
+   */
+  cost: DishCostVO | null
 }
 
 /** 筛选字典项：值 + 展示名 + 数量 */
@@ -204,6 +209,8 @@ export interface MenuResponse {
   /** 池子不足时的降级说明，必须展示给用户 */
   warnings: string[]
   excludedCount: number
+  /** 这一桌菜的成本：每道菜的价格 + 总费用 */
+  cost: MenuCostVO | null
 }
 
 export interface ShoppingItem {
@@ -330,4 +337,112 @@ export interface StatsVO {
   recipesByDifficulty: Record<string, number>
   topRecipes: RecipeCardVO[]
   generatedAt: string
+}
+
+// ---------------------------------------------------------------- 食材价格
+
+/** 食材分类枚举名；中文名在 VO 的 category 字段里 */
+export type IngredientCategoryCode =
+  | 'VEGETABLE'
+  | 'MEAT_EGG'
+  | 'AQUATIC'
+  | 'SOY'
+  | 'MUSHROOM'
+  | 'STAPLE'
+  | 'DAIRY'
+  | 'SEASONING'
+  | 'OTHER'
+
+export interface IngredientPriceVO {
+  id: number
+  name: string
+  /** 中文分类名，如「蔬菜」 */
+  category: string | null
+  categoryCode: IngredientCategoryCode | null
+  /** 计价单位：斤 / g / ml / 个 … */
+  priceUnit: string
+  unitPrice: number
+  /** 1 个计数单位约等于多少克，用于「个 ↔ 斤」换算 */
+  gramsPerUnit: number | null
+  note: string | null
+  enabled: boolean
+  updatedBy: number | null
+  updatedAt: string | null
+}
+
+export interface PriceQuery {
+  keyword?: string
+  category?: IngredientCategoryCode | ''
+  page?: number
+  size?: number
+}
+
+/** 修改价格：字段均可省略，后端只改传了的字段 */
+export interface PriceUpdateRequest {
+  unitPrice?: number
+  priceUnit?: string
+  category?: IngredientCategoryCode
+  gramsPerUnit?: number
+  note?: string | null
+  enabled?: boolean
+}
+
+export interface PriceCreateRequest {
+  name: string
+  unitPrice: number
+  priceUnit: string
+  category?: IngredientCategoryCode
+  gramsPerUnit?: number
+  note?: string | null
+}
+
+export interface IngredientCategoryOption {
+  value: IngredientCategoryCode
+  label: string
+}
+
+// ---------------------------------------------------------------- 做菜成本
+
+/** 一行食材的成本明细 */
+export interface DishCostLineVO {
+  name: string
+  amount: string | null
+  unit: string | null
+  category: string | null
+  /** 换算到计价单位后的数量，例如番茄「2 个」→ 0.6（斤） */
+  quantity: number | null
+  priceUnit: string | null
+  unitPrice: number | null
+  /** 该项金额；未定价时是 null */
+  cost: number | null
+  priced: boolean
+  /** 由「少许/适量」或跨单位换算估算而来，UI 上要标注 */
+  estimated: boolean
+}
+
+export interface DishCostVO {
+  recipeId: number
+  title: string
+  servings: number | null
+  totalCost: number
+  servingCost: number | null
+  pricedCount: number
+  unpricedCount: number
+  estimatedCount: number
+  complete: boolean
+  lines: DishCostLineVO[]
+}
+
+export interface MenuCostVO {
+  dishes: DishCostVO[]
+  totalCost: number
+  perServingCost: number | null
+  dishCount: number
+  pricedDishCount: number
+  unpricedIngredientCount: number
+  warnings: string[]
+}
+
+export interface MenuCostRequest {
+  recipeIds: number[]
 }

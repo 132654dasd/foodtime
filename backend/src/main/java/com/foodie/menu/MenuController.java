@@ -17,6 +17,9 @@ import com.foodie.menu.dto.MenuRequest;
 import com.foodie.menu.dto.MenuResponse;
 import com.foodie.menu.dto.ShoppingItem;
 import com.foodie.menu.dto.ShoppingListRequest;
+import com.foodie.price.DishCostService;
+import com.foodie.price.dto.MenuCostRequest;
+import com.foodie.price.dto.MenuCostVO;
 import com.foodie.ratelimit.RateLimit;
 import com.foodie.recipe.dto.RecipeCardVO;
 
@@ -30,11 +33,14 @@ public class MenuController {
 
     private final MenuPlannerService menuPlannerService;
     private final ShoppingListService shoppingListService;
+    private final DishCostService dishCostService;
 
     public MenuController(MenuPlannerService menuPlannerService,
-                          ShoppingListService shoppingListService) {
+                          ShoppingListService shoppingListService,
+                          DishCostService dishCostService) {
         this.menuPlannerService = menuPlannerService;
         this.shoppingListService = shoppingListService;
+        this.dishCostService = dishCostService;
     }
 
     @PostMapping("/random")
@@ -61,5 +67,13 @@ public class MenuController {
     @Operation(summary = "生成采购清单", description = "把整桌菜的食材按 名称+单位 合并去重，可累加的给出总量")
     public Result<List<ShoppingItem>> shoppingList(@Valid @RequestBody ShoppingListRequest request) {
         return Result.ok(shoppingListService.build(request.recipeIds()));
+    }
+
+    @PostMapping("/cost")
+    @Operation(summary = "计算所选菜品的价格",
+            description = "用户勾选要做的菜之后调用：返回每道菜的成本明细与总费用。"
+                    + "未定价的食材不会瞎猜价格，而是通过 unpricedCount 明确报出来")
+    public Result<MenuCostVO> cost(@Valid @RequestBody MenuCostRequest request) {
+        return Result.ok(dishCostService.menuCost(request.recipeIds()));
     }
 }

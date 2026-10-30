@@ -40,6 +40,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '今天吃什么', requiresAuth: true },
   },
   {
+    path: '/prices',
+    name: 'price-board',
+    component: () => import('@/views/prices/PriceBoardView.vue'),
+    meta: { title: '食材价格' },
+  },
+  {
     path: '/community',
     name: 'community',
     component: () => import('@/views/community/CommunityListView.vue'),

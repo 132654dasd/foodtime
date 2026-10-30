@@ -6,7 +6,7 @@ import { CopyDocument, MagicStick, Refresh, ShoppingCart } from '@element-plus/i
 import EmptyState from '@/components/EmptyState.vue'
 import LoadingState from '@/components/LoadingState.vue'
 import RecipeCover from '@/components/RecipeCover.vue'
-import { isCanceled, randomMenu, rerollMenu, shoppingList } from '@/api'
+import { calcMenuCost, isCanceled, randomMenu, rerollMenu, shoppingList } from '@/api'
 import type { MenuRequest, MenuResponse, MenuStrategy, ShoppingItem } from '@/api/types'
 import { useMetaStore } from '@/stores/meta'
 import { useUserStore } from '@/stores/user'
@@ -294,6 +294,26 @@ function recomputeSummary(): void {
     categoryMix,
   }
   summaryStale.value = true
+  // 换过菜之后成本也变了：异步重算一次，失败也不能挡住配餐结果展示
+  void refreshCost()
+}
+
+/** 按当前菜单里的菜重新算价（换菜后调用）。 */
+async function refreshCost(): Promise<void> {
+  const current = result.value
+  if (!current) {
+    return
+  }
+  const ids = [...current.dishes, ...current.soups].map((item) => item.id)
+  if (ids.length === 0) {
+    current.cost = null
+    return
+  }
+  try {
+    current.cost = await calcMenuCost(ids)
+  } catch {
+    /* 拦截器已提示；成本算不出来不该影响用户看菜单 */
+  }
 }
 
 // ------------------------------------------------------------ 采购清单
@@ -528,6 +548,41 @@ function gotoRecipe(id: number): void {
                 <strong class="tnum">{{ result.excludedCount }}</strong>
                 <span>道菜</span>
               </div>
+              <div class="summary__stat">
+                <em>总费用</em>
+                <strong class="tnum">
+                  {{ result.cost ? `¥${result.cost.totalCost.toFixed(2)}` : '—' }}
+                </strong>
+                <span>
+                  {{
+                    result.cost?.perServingCost != null
+                      ? `人均 ¥${result.cost.perServingCost.toFixed(2)}`
+                      : '元'
+                  }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="result.cost" class="summary__row">
+              <span class="summary__label">各菜价格</span>
+              <span class="chip-row">
+                <el-tag
+                  v-for="dish in result.cost.dishes"
+                  :key="dish.recipeId"
+                  effect="plain"
+                  round
+                >
+                  {{ dish.title }} ¥{{ dish.totalCost.toFixed(2) }}
+                </el-tag>
+                <el-tag
+                  v-if="result.cost.unpricedIngredientCount > 0"
+                  type="warning"
+                  effect="light"
+                  round
+                >
+                  {{ result.cost.unpricedIngredientCount }} 项食材未定价
+                </el-tag>
+              </span>
             </div>
 
             <div class="summary__row">

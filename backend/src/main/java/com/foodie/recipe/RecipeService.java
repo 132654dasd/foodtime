@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.foodie.common.BizException;
 import com.foodie.common.PageResult;
 import com.foodie.config.CacheConfig;
+import com.foodie.price.DishCostService;
+import com.foodie.price.dto.CostIngredient;
 import com.foodie.recipe.dto.RecipeCardVO;
 import com.foodie.recipe.dto.RecipeDetailVO;
 import com.foodie.recipe.dto.RecipeMetaVO;
@@ -43,17 +45,20 @@ public class RecipeService {
     private final UserFavoriteRepository favoriteRepository;
     private final RecipeRatingRepository ratingRepository;
     private final ViewCountBuffer viewCountBuffer;
+    private final DishCostService dishCostService;
 
     public RecipeService(RecipeRepository recipeRepository,
                          RecipeTagRepository tagRepository,
                          UserFavoriteRepository favoriteRepository,
                          RecipeRatingRepository ratingRepository,
-                         ViewCountBuffer viewCountBuffer) {
+                         ViewCountBuffer viewCountBuffer,
+                         DishCostService dishCostService) {
         this.recipeRepository = recipeRepository;
         this.tagRepository = tagRepository;
         this.favoriteRepository = favoriteRepository;
         this.ratingRepository = ratingRepository;
         this.viewCountBuffer = viewCountBuffer;
+        this.dishCostService = dishCostService;
     }
 
     // ============================================================ 查询
@@ -106,15 +111,28 @@ public class RecipeService {
         return RecipeDetailVO.of(recipe);
     }
 
-    /** 供接口使用：详情 + 当前用户收藏态，并顺带记一次浏览。 */
+    /**
+     * 供接口使用：详情 + 当前用户收藏态 + 实时成本，并顺带记一次浏览。
+     *
+     * <p>成本在这里现算而不是塞进 {@link #detail} 的缓存：价目会被管理员随时改，
+     * 一旦缓存住就会出现「后台已经改了价、前台还是旧价」的静默错误。
+     * 算法直接复用详情 VO 里已有的食材列表，不再额外查一次 ingredient 表。
+     */
     @Transactional(readOnly = true)
     public RecipeDetailVO detailFor(Long id, Long userId) {
         RecipeDetailVO detail = detail(id);
         viewCountBuffer.increment(id);
+
+        List<CostIngredient> items = detail.ingredients().stream()
+                .map(item -> new CostIngredient(item.name(), item.amount(), item.unit()))
+                .toList();
+        RecipeDetailVO withCost = detail.withCost(
+                dishCostService.costOf(detail.id(), detail.title(), detail.servings(), items));
+
         if (userId == null) {
-            return detail;
+            return withCost;
         }
-        return detail.withFavorited(favoriteRepository.existsByUserIdAndRecipeId(userId, id));
+        return withCost.withFavorited(favoriteRepository.existsByUserIdAndRecipeId(userId, id));
     }
 
     @Cacheable(value = CacheConfig.HOT_RECIPES, key = "#limit", sync = true)

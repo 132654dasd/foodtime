@@ -35,5 +35,14 @@ public record MenuRequest(
 
         MenuStrategyType strategy,
 
-        boolean excludeRecent) {
+        /*
+         * 同样用包装类型：Jackson 3 的 FAIL_ON_NULL_FOR_PRIMITIVES 默认是 true，
+         * 基本类型 boolean 遇到「客户端没传」会直接反序列化失败（详见 LoginRequest 的说明）。
+         */
+        Boolean excludeRecent) {
+
+    /** 字段可省略，省略时按 false 处理。 */
+    public boolean excludeRecentEnabled() {
+        return Boolean.TRUE.equals(excludeRecent);
+    }
 }
