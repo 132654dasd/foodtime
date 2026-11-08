@@ -446,3 +446,87 @@ export interface MenuCostVO {
 export interface MenuCostRequest {
   recipeIds: number[]
 }
+
+// ---------------------------------------------------------------- 我的冰箱
+
+/** 冰箱里的一条食材 */
+export interface FridgeItemVO {
+  id: number
+  name: string
+  /** 数量；null 表示「有就行」，不参与够不够的判断 */
+  quantity: number | null
+  /** 单位；空串表示「有就行」 */
+  unit: string
+  expireAt: string | null
+  /** 3 天内到期（含已过期） */
+  expiringSoon: boolean
+  expired: boolean
+  /** 现有菜谱里能否匹配到该食材（含同义词与近似匹配，不是字符串相等） */
+  known: boolean
+}
+
+export interface FridgeItemRequest {
+  name: string
+  quantity?: number | null
+  unit?: string | null
+  expireAt?: string | null
+}
+
+/**
+ * 修改冰箱食材（PUT = 整体替换）。
+ *
+ * 传什么就是什么，`null` 表示清空 —— 这样「把数量改成不限」和「不改数量」
+ * 才是两件不同的事。前端编辑框会把三个字段一起提交。
+ */
+export interface FridgeUpdateRequest {
+  quantity?: number | null
+  unit?: string | null
+  expireAt?: string | null
+}
+
+/** 食材字典条目，用于录入时的自动补全 */
+export interface CatalogItemVO {
+  name: string
+  /** 用到它的菜谱数，越大越值得优先添加 */
+  recipeCount: number
+  category: string | null
+}
+
+/** 命中食材的数量状态 */
+export type FridgeStock = 'ENOUGH' | 'PRESENT' | 'NOT_ENOUGH'
+
+export interface MatchedIngredientVO {
+  /** 冰箱里的原始写法 */
+  fridgeName: string
+  /** 菜谱里的原始写法 */
+  ingredientName: string
+  /** 近似匹配，UI 上标「≈」 */
+  approximate: boolean
+  stock: FridgeStock
+}
+
+/** 一道菜与冰箱的匹配结果 */
+export interface RecipeMatchVO {
+  recipe: RecipeCardVO
+  /** 主料齐了 = 现在就能做 */
+  cookable: boolean
+  mainTotal: number
+  mainMatched: number
+  matchedCount: number
+  missingMain: string[]
+  missingAux: string[]
+  matchedIngredients: MatchedIngredientVO[]
+  /** 用到的快过期食材名 */
+  expiringUsed: string[]
+}
+
+export interface FridgeSuggestionVO {
+  items: RecipeMatchVO[]
+  fridgeCount: number
+  cookableCount: number
+  candidateCount: number
+  excludedByAvoidance: number
+  /** 没有任何菜谱用到的食材名——必须展示，否则用户会以为功能坏了 */
+  unusedFridgeItems: string[]
+  warnings: string[]
+}

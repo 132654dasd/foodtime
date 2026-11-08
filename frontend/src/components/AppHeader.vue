@@ -25,6 +25,7 @@ const navItems = [
   { path: '/', label: '首页' },
   { path: '/recipes', label: '菜谱库' },
   { path: '/menu', label: '今天吃什么' },
+  { path: '/fridge', label: '我的冰箱' },
   { path: '/prices', label: '食材价格' },
   { path: '/community', label: '美食社区' },
 ]

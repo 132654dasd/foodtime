@@ -124,6 +124,8 @@ app:
       post:      { capacity: 5,  period-seconds: 300 }
       menu:      { capacity: 30, period-seconds: 60 }
       upload:    { capacity: 20, period-seconds: 300 }
+      # 冰箱写操作：录入食材是低频动作，60 次/分钟足够正常使用
+      fridge:    { capacity: 60, period-seconds: 60 }
 
 logging:
   level:

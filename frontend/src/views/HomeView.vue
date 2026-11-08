@@ -106,6 +106,11 @@ function gotoMenu(): void {
   void router.push('/menu')
 }
 
+function gotoFridge(): void {
+  // 未登录时由路由守卫拦到登录页，并把 redirect 带回来
+  void router.push('/fridge')
+}
+
 onBeforeUnmount(() => {
   runSuggest.cancel()
   suggestController?.abort()
@@ -120,7 +125,7 @@ onBeforeUnmount(() => {
           <span class="hero__badge">今天吃什么，交给食光</span>
           <h1 class="hero__title">把冰箱里那点食材，<br />变成一顿像样的饭</h1>
           <p class="hero__sub">
-            30 道家常菜谱、按忌口与规格随机配餐、真实的社区分享。挑不出来的时候，让「今天吃什么」替你决定。
+            30 道家常菜谱、按忌口与规格随机配餐、把冰箱里有的食材填一填就能反查「现在能做什么」，还有真实的社区分享。挑不出来的时候，让「今天吃什么」替你决定。
           </p>
 
           <div class="hero__search">
@@ -156,6 +161,7 @@ onBeforeUnmount(() => {
 
           <div class="hero__actions">
             <el-button type="primary" size="large" @click="gotoMenu">今天吃什么</el-button>
+            <el-button size="large" @click="gotoFridge">看看我的冰箱</el-button>
             <el-button size="large" @click="gotoRecipes({})">浏览全部菜谱</el-button>
           </div>
         </div>

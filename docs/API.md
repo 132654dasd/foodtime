@@ -434,3 +434,105 @@ Query 同上，额外包含停用条目。
 ### `POST /api/menu/random` 新增 `cost` 字段
 
 整桌菜的 `MenuCostVO`，与上面的结构一致，省掉前端再发一次请求。
+
+---
+
+## 11. 我的冰箱 `/api/fridge`
+
+冰箱是**个人数据**，所有接口都要求登录。
+（`SecurityConfig` 里 `/api/**` 默认要求登录，`/api/fridge/**` 不匹配任何公开前缀，
+因此**不需要额外的安全配置**。）跨用户访问一律返回 404，不泄漏资源是否存在。
+
+### GET `/api/fridge` —— 我的冰箱（需登录）
+
+按过期日升序；没有过期日的排最后。
+
+```json
+[{
+  "id": 12, "name": "番茄", "quantity": 3.00, "unit": "个",
+  "expireAt": "2026-11-10",
+  "expiringSoon": true, "expired": false, "known": true
+}]
+```
+
+- `quantity` 为 `null` 或 `unit` 为空串表示**「有就行」**：参与「有没有」的判断，
+  不参与「够不够」的判断
+- `expiringSoon`：3 天内到期（含已过期）；`expired`：已过期
+- `known`：该食材能否在现有菜谱里匹配到。**用同义词与近似匹配判断，不是字符串相等**——
+  填「五花肉」能匹配到「带皮五花肉」，所以是 `true`
+
+### GET `/api/fridge/catalog` —— 食材字典（需登录）
+
+```json
+[{ "name": "番茄", "recipeCount": 12, "category": "蔬菜" }]
+```
+
+按 `recipeCount` 降序。用于录入时的自动补全：
+引导用户优先添加「能解锁更多菜」的食材，而不是加一堆没人用的名字。
+
+### POST `/api/fridge` —— 添加食材（需登录，限流 60 次/分钟）
+
+```json
+{ "name": "番茄", "quantity": 3, "unit": "个", "expireAt": "2026-11-10" }
+```
+
+- `name` 必填，1-50 字；`quantity` 0.01-9999；`unit` ≤20 字；`expireAt` 可空
+- **同名同单位重复添加返回 409**，请直接改数量。
+  系统无法区分「又买了一次」与「上次填错了」，猜错的代价是库存数量长期失真
+- `unit` 在入口处会被归一化（「克」「G」「g」都存成 `g`），
+  否则唯一键和数量换算都会被同一食材的不同写法搞乱
+
+### PUT `/api/fridge/{id}` —— 修改食材（需登录）
+
+**PUT = 整体替换**：传什么就是什么，`null` 就是清空。
+
+```json
+{ "quantity": 5, "unit": "个", "expireAt": null }
+```
+
+> 为什么不用「只更新非 null 字段」的 PATCH 语义：那样 `null` 要同时表示
+> 「不修改」和「清空」，而「把数量改成不限」与「不改数量」都是真实需求。
+> 整体替换没有歧义，代价是前端编辑框需要把三个字段一起提交。
+
+### DELETE `/api/fridge/{id}` —— 移除食材（需登录）
+
+### GET `/api/fridge/recipes` —— 按冰箱推荐菜谱（需登录）
+
+Query：`limit`（默认 12，上限 30）、`onlyCookable`（默认 `false`）。
+
+```json
+{
+  "items": [{
+    "recipe": { "...RecipeCardVO..." },
+    "cookable": true,
+    "mainTotal": 2, "mainMatched": 2, "matchedCount": 3,
+    "missingMain": [],
+    "missingAux": ["小葱", "香油", "盐", "白糖", "白胡椒粉"],
+    "matchedIngredients": [
+      { "fridgeName": "番茄", "ingredientName": "番茄", "approximate": false, "stock": "ENOUGH" },
+      { "fridgeName": "鸡蛋", "ingredientName": "鸡蛋", "approximate": false, "stock": "PRESENT" }
+    ],
+    "expiringUsed": ["番茄"]
+  }],
+  "fridgeCount": 5,
+  "cookableCount": 1,
+  "candidateCount": 9,
+  "excludedByAvoidance": 1,
+  "unusedFridgeItems": ["大蒜"],
+  "warnings": ["这 1 样食材暂时没有菜谱用到：大蒜"]
+}
+```
+
+- `cookable = true`：**主料齐了 = 现在就能做**（调料缺几样不算）
+- `stock` 三态：`ENOUGH` 够 / `NOT_ENOUGH` 量不够 / `PRESENT` 有但无法比较数量
+- `approximate = true`：近似匹配，UI 应标「≈」（例：`fridgeName="五花肉"`、
+  `ingredientName="带皮五花肉"`）
+- **排序由服务端定死，前端不要再排一次**，否则两处口径会不一致。顺序是：
+  缺主料数 → 主料量不足数 → 缺辅料数 → 用到的快过期食材数（降序）→ 评分 → 浏览量 → id
+- `candidateCount`：命中至少一样主料、且未被忌口排除的菜谱数（`limit` 截断前）
+- `excludedByAvoidance`：因为账号里保存的忌口被排除的菜谱数
+- `unusedFridgeItems`：**没有任何菜谱用到**的食材名。必须展示——
+  否则用户会以为功能坏了
+- 冰箱为空时返回空 `items` 与一条 warning，不报错
+- 忌口直接复用随机配餐那套关键词过滤（`AvoidanceFilterService`），
+  同一个用户在两个页面看到的忌口效果一致

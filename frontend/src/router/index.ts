@@ -40,6 +40,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '今天吃什么', requiresAuth: true },
   },
   {
+    path: '/fridge',
+    name: 'fridge',
+    component: () => import('@/views/fridge/FridgeView.vue'),
+    meta: { title: '我的冰箱', requiresAuth: true },
+  },
+  {
     path: '/prices',
     name: 'price-board',
     component: () => import('@/views/prices/PriceBoardView.vue'),

@@ -70,6 +70,12 @@ class FoodieMySqlIT {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private com.foodie.fridge.FridgeItemRepository fridgeItemRepository;
+
+    @Autowired
+    private com.foodie.fridge.FridgeRecommendService fridgeRecommendService;
+
     @Test
     @DisplayName("Flyway 迁移结果：30 道菜谱、分类与难度分布正确")
     void flywaySeedsExpectedRecipes() {
@@ -223,5 +229,91 @@ class FoodieMySqlIT {
         assertThat(updated.ingredients()).hasSize(1);
         assertThat(updated.tags()).containsExactly("川菜");
         assertThat(updated.difficultyLevel()).as("难度等级要跟着难度一起更新").isEqualTo(2);
+    }
+
+    // ============================================================ 冰箱
+
+    @Test
+    @DisplayName("食材字典：分组统计覆盖全部菜谱食材，且没有用量为 0 的条目")
+    void ingredientUsageCoversVocabulary() {
+        List<com.foodie.recipe.IngredientUsage> usage = ingredientRepository.findUsage();
+
+        // 种子数据里食材名有 130 多种，少于这个数说明 group by 出问题了
+        assertThat(usage).hasSizeGreaterThan(130);
+        assertThat(usage).allSatisfy(entry -> {
+            assertThat(entry.name()).as("食材名不能为空").isNotBlank();
+            assertThat(entry.recipeCount()).as("%s 的菜谱数", entry.name()).isPositive();
+        });
+        assertThat(usage).extracting(com.foodie.recipe.IngredientUsage::name).contains("番茄", "鸡蛋");
+    }
+
+    @Test
+    @DisplayName("食材行投影：一次拉平后每行都带 recipeId 与主料标记")
+    void ingredientRowsProjectionIsComplete() {
+        List<com.foodie.recipe.IngredientRow> rows = ingredientRepository.findAllRows();
+
+        assertThat(rows).isNotEmpty();
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(row.recipeId()).isNotNull();
+            assertThat(row.name()).isNotBlank();
+        });
+        // 主料与辅料都应存在：全是主料说明 is_main 列没被正确读出
+        assertThat(rows).anyMatch(com.foodie.recipe.IngredientRow::mainFlag);
+        assertThat(rows).anyMatch(row -> !row.mainFlag());
+    }
+
+    @Test
+    @DisplayName("冰箱唯一键：同一用户同一食材同一单位不能重复插入")
+    void fridgeUniqueKeyBlocksDuplicate() {
+        Long userId = userRepository.findByUsername("demo").orElseThrow().getId();
+
+        com.foodie.fridge.FridgeItem first = new com.foodie.fridge.FridgeItem();
+        first.setUserId(userId);
+        first.setName("回归测试食材");
+        first.setUnit("");
+        fridgeItemRepository.saveAndFlush(first);
+
+        com.foodie.fridge.FridgeItem duplicate = new com.foodie.fridge.FridgeItem();
+        duplicate.setUserId(userId);
+        duplicate.setName("回归测试食材");
+        duplicate.setUnit("");
+
+        // 必须是数据库唯一键挡住，而不是靠应用层先查后插（并发下会漏）
+        org.assertj.core.api.Assertions
+                .assertThatThrownBy(() -> fridgeItemRepository.saveAndFlush(duplicate))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("按冰箱推荐：种子演示冰箱能做番茄蛋花汤，且含香菜的菜被忌口排除")
+    void fridgeRecommendationUsesSeededFridge() {
+        Long userId = userRepository.findByUsername("demo").orElseThrow().getId();
+
+        com.foodie.fridge.dto.FridgeSuggestionVO suggestion =
+                fridgeRecommendService.suggest(userId, 12, false);
+
+        assertThat(suggestion.fridgeCount()).as("V5 给 demo 预置了冰箱食材").isEqualTo(5);
+        assertThat(suggestion.items()).isNotEmpty();
+        assertThat(suggestion.cookableCount()).as("番茄 + 鸡蛋 应该能做一道汤").isPositive();
+
+        // 「还差几样主料」必须单调不减，否则排序规则没有生效
+        assertThat(suggestion.items())
+                .extracting(item -> item.missingMain().size())
+                .isSorted();
+
+        assertThat(suggestion.items()).extracting(item -> item.recipe().title())
+                .contains("番茄蛋花汤");
+        assertThat(suggestion.items())
+                .filteredOn(item -> "番茄蛋花汤".equals(item.recipe().title()))
+                .first()
+                .satisfies(item -> {
+                    assertThat(item.cookable()).isTrue();
+                    assertThat(item.missingMain()).isEmpty();
+                });
+
+        // demo 预置忌口「香菜」：含香菜的冬瓜排骨汤必须被排除
+        assertThat(suggestion.items()).extracting(item -> item.recipe().title())
+                .doesNotContain("冬瓜排骨汤", "拍黄瓜", "凉拌木耳");
+        assertThat(suggestion.excludedByAvoidance()).isPositive();
     }
 }

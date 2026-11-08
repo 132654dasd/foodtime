@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { CopyDocument, MagicStick, Refresh, ShoppingCart } from '@element-plus/icons-vue'
 
 import EmptyState from '@/components/EmptyState.vue'
@@ -13,7 +12,6 @@ import { useUserStore } from '@/stores/user'
 import { copyText } from '@/utils/clipboard'
 import { difficultyTagType, formatMinutes, formatNumber } from '@/utils/format'
 
-const router = useRouter()
 const metaStore = useMetaStore()
 const userStore = useUserStore()
 
@@ -358,10 +356,6 @@ async function copyShoppingList(): Promise<void> {
     ElMessage.warning('当前浏览器不允许自动复制，请手动选中复制')
   }
 }
-
-function gotoRecipe(id: number): void {
-  void router.push(`/recipes/${id}`)
-}
 </script>
 
 <template>
@@ -644,10 +638,11 @@ function gotoRecipe(id: number): void {
               <span class="muted small">共 {{ section.items.length }} 道</span>
             </h2>
             <div class="menu-items">
-              <div
+              <RouterLink
                 v-for="(item, index) in section.items"
                 :key="item.id"
                 class="menu-item surface"
+                :to="`/recipes/${item.id}`"
               >
                 <RecipeCover
                   :title="item.title"
@@ -657,9 +652,7 @@ function gotoRecipe(id: number): void {
                   :show-title="false"
                 />
                 <div class="menu-item__body">
-                  <button class="menu-item__title" type="button" @click="gotoRecipe(item.id)">
-                    {{ item.title }}
-                  </button>
+                  <h3 class="menu-item__title">{{ item.title }}</h3>
                   <div class="menu-item__meta">
                     <el-tag size="small" :type="difficultyTagType(item.difficulty)" effect="light">
                       {{ item.difficultyLabel || '—' }}
@@ -674,13 +667,13 @@ function gotoRecipe(id: number): void {
                       size="small"
                       :icon="Refresh"
                       :loading="rerollKey === `${section.key}-${index}`"
-                      @click="reroll(section.key, index)"
+                      @click.stop.prevent="reroll(section.key, index)"
                     >
                       换一道
                     </el-button>
                   </div>
                 </div>
-              </div>
+              </RouterLink>
             </div>
           </div>
 
@@ -965,6 +958,15 @@ function gotoRecipe(id: number): void {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* 整卡可点：悬停反馈与首页 RecipeCard 保持一致 */
+.menu-item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--foodie-shadow-hover);
 }
 
 .menu-item__body {
@@ -976,17 +978,11 @@ function gotoRecipe(id: number): void {
 }
 
 .menu-item__title {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--foodie-text);
-  cursor: pointer;
   font-size: 15px;
   font-weight: 700;
-  text-align: left;
 }
 
-.menu-item__title:hover {
+.menu-item:hover .menu-item__title {
   color: var(--foodie-primary);
 }
 
